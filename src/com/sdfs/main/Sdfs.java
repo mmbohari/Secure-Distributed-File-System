@@ -17,7 +17,6 @@ import com.sdfs.masterServer.MasterServer;
  */
 
 public class Sdfs {
-
 	Scanner sc;
 	
 	/*
@@ -34,7 +33,7 @@ public class Sdfs {
 	 * This method is used to take input from user
 	 */
 	
-	public int takeInput(){
+	public int input(){
 		int userInputOption = 0;
 		
 		displayOptions();
@@ -50,6 +49,9 @@ public class Sdfs {
 
 	}
 	
+	/*
+	 * Main method
+	 */
 	public static void main(String[] args) {
 		Sdfs obj;
 		int userInputOption;
@@ -61,7 +63,7 @@ public class Sdfs {
 		
 		do{
 			// take input from client
-			userInputOption = obj.takeInput();
+			userInputOption = obj.input();
 		} while(userInputOption == 0);
 		
 		if(userInputOption == 1){
