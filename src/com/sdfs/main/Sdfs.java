@@ -43,7 +43,7 @@ public class Sdfs {
 			sc = new Scanner(System.in);
 			userInputOption = sc.nextInt();
 		} catch (Exception e) {
-			System.err.println("Enter an integer!!! " + e);
+			System.err.println("Please enter a valid option!!!");
 		}
 		
 		return userInputOption;
@@ -62,7 +62,7 @@ public class Sdfs {
 		do{
 			// take input from client
 			userInputOption = obj.takeInput();
-		} while(userInputOption != 0);
+		} while(userInputOption == 0);
 		
 		if(userInputOption == 1){
 			ms = new MasterServer();
