@@ -5,6 +5,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Scanner;
 
@@ -19,17 +20,20 @@ public class Chunkserver {
 	private static int listeningPort;
 	private static int listeningPortMasterServer;
 	private static String chunkServerName;
+	private static boolean keepListening;
 	Scanner sc;
 	
 	Socket socket;
-	DataOutputStream dout;
-	DataInputStream din;
+	
+	ServerSocket serverSocket;
+	Socket clientSocket;
 	
 	/*
 	 * Constructor of Chunkserver
 	 */
 	public Chunkserver(){
 		chunkServerName = "Chunkserver";
+		keepListening = true;
 	}
 	
 	/*
@@ -59,6 +63,9 @@ public class Chunkserver {
 		// register with master server
 		System.out.println("Registering with master server..");
 		registerMasterServer();
+		
+		// listen for requests
+		listenRequests();
 		
 		displayLines();
 	}
@@ -126,7 +133,8 @@ public class Chunkserver {
 	 * as either chunkserver or backup chunkserver.
 	 */
 	public void registerMasterServer(){
-		String replyFromMasterServer;
+		DataInputStream din = null;
+		DataOutputStream dout = null;
 		
 		try {
 			socket = new Socket("localhost", listeningPortMasterServer);
@@ -151,6 +159,38 @@ public class Chunkserver {
 				System.err.println("Error while closing connections"
 						+ " (socket,etc) " + e);
 			}
+			
+		}
+	}
+	
+	/*
+	 * This method is used to listen for incoming requests.
+	 * Master server or client can send requests 
+	 */
+	public void listenRequests(){
+		try {
+			serverSocket = new ServerSocket(listeningPort);
+		} catch (IOException e) {
+			System.err.println("Error encountered while opening "
+					+ "serverSocket!!! " + e);
+		}
+		
+		while(keepListening){
+			displayLines();
+			System.out.println(chunkServerName +  " listening for connections"
+					+ " on port: " + listeningPort);					// remove displaying listeningPort
+			
+			try {
+				clientSocket = serverSocket.accept();
+				// establish a new thread to process the received request
+				Thread thread = new Thread(new 
+						ProcessRequest(clientSocket, this));
+				thread.start();
+				
+			} catch (IOException e) {
+				System.err.println("Error encountered while accepting "
+						+ "client connection!!! " + e);
+			} 
 			
 		}
 	}
@@ -195,6 +235,80 @@ public class Chunkserver {
 	 */
 	public void displayCross(){
 		System.out.println("X==X==X==X==X==X==X==X==X==X==X==X=");
+	}
+	
+}
+
+/**
+ * This class is used to process request received 
+ * by chunkserver. Requests could be either sent by master server
+ * or clients
+ */
+class ProcessRequest implements Runnable{
+
+	Socket socket;
+	DataInputStream din;
+	DataOutputStream dout;
+	Chunkserver chunkServer;
+	
+	/*
+	 * This is constructor method.
+	 */
+	public ProcessRequest(Socket socket, Chunkserver chunkObject){
+		this.socket = socket;
+		chunkServer = chunkObject;
+	}
+	
+	public void run() {
+		String receivedRequest;
+		
+		try {
+			din = new DataInputStream(socket.getInputStream());
+			dout = new DataOutputStream(socket.getOutputStream());
+			
+			while(true){
+				receivedRequest = din.readUTF();
+				
+				System.out.println(receivedRequest); 							// remove for testing
+				
+				// if the received request is a heartbeat message request
+				if(receivedRequest.contains("Heartbeat message"))
+					processHeartbeatMessage();
+			}
+			
+			} catch (IOException e) {
+			System.err.println("Error encountered while creating "
+					+ "data i/p & o/p streams!!! " + e);
+		}
+	}
+	
+	/*
+	 * This method is used to process a heartbeat message
+	 */
+	public void processHeartbeatMessage(){
+		try {
+			dout.writeUTF("alive " + chunkServer.getChunkserverName());
+			System.out.println("Response to hearbeat message sent.."); 		// remove for testing
+			
+		} catch (IOException e) {
+			System.err.println("Error encountered while "
+					+ "writing through dout!!! " + e);
+		}
+	}
+	
+	/*
+	 * This method is used to close socket along with
+	 * din and dout
+	 */
+	public void closeSocket(){
+		try {
+			din.close();
+			dout.close();
+			socket.close();
+		} catch (IOException e) {
+			System.err.println("Error while closing socket or "
+					+ "din/dout !!! " + e);
+		}
 	}
 	
 }

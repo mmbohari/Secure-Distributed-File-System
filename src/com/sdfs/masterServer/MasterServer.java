@@ -110,8 +110,8 @@ public class MasterServer {
 			
 			// for testing purposes
 			displayCross();													// remove
-			displayActiveChunkserver();										// remove
-			displayBackupChunkserver();										// remove
+			//displayActiveChunkserver();										// remove
+			//displayBackupChunkserver();										// remove
 		}
 	}
 	
@@ -205,10 +205,17 @@ public class MasterServer {
 		try {
 			dout.writeUTF("Your request has been received. You are"
 					+ " registered as Chunkserver.");
+			
+			// create a thread that will send heartbeat messages to 
+			// this chunkserver
+			Thread thread = new Thread(new Heartbeat(this, chunkserverName));
+			thread.start();
 		} catch (IOException e) {
 			System.err.println("Error encountered while writing"
 					+ " with data o/p!!! " + e);
 		}
+		
+		
 	}
 	
 	/*
@@ -238,6 +245,8 @@ public class MasterServer {
 	 * listening ports
 	 */
 	public void displayActiveChunkserver(){
+		System.out.println("Active Chunkserver list & their listening port's");
+		
 		// display information of activeChunkserverArray
 		for(int i=0; i < activeChunkserver; i++){
 			System.out.println(activeChunkserverArray[i] + " "
@@ -252,6 +261,7 @@ public class MasterServer {
 	 */
 	public void displayBackupChunkserver(){
 		if(backupChunkserver != 0)
+			System.out.println("Backup Chunkserver list & their listening port's");
 		
 		// display information of backupChunkserverArray
 		for(int i=0; i < backupChunkserver; i++){
@@ -282,6 +292,94 @@ public class MasterServer {
 	 */
 	public void displayCross(){
 		System.out.println("X==X==X==X==X==X==X==X==X==X==X==X=");
+	}
+	
+}
+
+/**
+ * This class is used to send heartbeat messages to chunkservers.
+ * Failure is detected through this class
+ * 
+ * @author mmbohari
+ *
+ */
+class Heartbeat implements Runnable{
+
+	MasterServer masterServer;
+	Socket socket;
+	DataInputStream din;
+	DataOutputStream dout;
+	int chunkserverListeningPort;
+	String chunkserverName;
+	boolean stop;
+	
+	public Heartbeat(MasterServer masterServer, String chunkserverName){
+		this.masterServer = masterServer;
+		this.chunkserverName = chunkserverName;
+		chunkserverListeningPort = masterServer.chunkserverMap.get(chunkserverName);
+	}
+	
+	public void run() {
+		String hearbeatReply;
+		
+		// establish connection with chunkserver
+		establishConnection();
+		
+		// keep sending heartbeat messages in a interval of 5 seconds
+		while(stop == false){
+			try {
+				dout.writeUTF("Heartbeat message from Master Server");
+				hearbeatReply = din.readUTF();
+				System.out.println("Heartbeat message received from "
+						+ "" + chunkserverName); 							// remove testing purpose
+			} catch (IOException e1) {
+				System.err.println(chunkserverName + " is dead!!!");
+				stop = true;
+				
+				/**
+				 * Write code for taking action once it is found that
+				 * a chunkserver is dead
+				 */
+			}
+			
+			try {
+				Thread.sleep(5000);
+			} catch (InterruptedException e) {
+				System.err.println("Error while thread is trying to "
+						+ "sleep!!! " + e);
+			}
+		}
+	}
+	
+	/*
+	 * This method is used to establish connection with 
+	 * chunkserver
+	 */
+	public void establishConnection(){
+			try {
+				socket = new Socket("localhost", chunkserverListeningPort);
+				din = new DataInputStream(socket.getInputStream());
+				dout = new DataOutputStream(socket.getOutputStream());
+			} catch (IOException e) {
+				System.err.println("Error encountered (From class Heartbear)"
+						+ " " + e);
+			}
+			
+	}
+	
+	/*
+	 * This method is used to close socket along with
+	 * din and dout
+	 */
+	public void closeSocket(){
+		try {
+			din.close();
+			dout.close();
+			socket.close();
+		} catch (IOException e) {
+			System.err.println("Error while closing socket or "
+					+ "din/dout !!! " + e);
+		}
 	}
 	
 }
