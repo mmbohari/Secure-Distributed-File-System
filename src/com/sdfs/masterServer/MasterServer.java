@@ -29,6 +29,7 @@ public class MasterServer {
 	ServerSocket serverSocket;
 	Socket clientSocket;												// can make this local						
 	HashMap<String, Integer> chunkserverMap;
+	HashMap<String, String> usernamePassMap;
 	
 	/*
 	 * Constructor of MasterServer
@@ -38,6 +39,7 @@ public class MasterServer {
 		activeChunkserverArray = new String[3];
 		backupChunkserverArray = new String[3];
 		chunkserverMap = new HashMap<>();
+		usernamePassMap = new HashMap<>();
 	}
 	
 	/*
@@ -128,8 +130,12 @@ public class MasterServer {
 			dout = new DataOutputStream(socket.getOutputStream());
 			receivedRequest = din.readUTF();
 			
-			if(receivedRequest.contains("Registeration request"))
-				registrationRequest(receivedRequest, dout);
+			if(receivedRequest.contains("Chunkserver Registration request"))
+				chunkserverRegistrationRequest(receivedRequest, dout);
+			else if(receivedRequest.contains("Client Registration request"))
+				clientRegistrationRequest(din, dout);		
+			else if(receivedRequest.contains("ClientLoginRequest"))
+				clientLoginRequest(din, dout, receivedRequest);
 
 			} catch (IOException e) {
 			System.err.println("Error encountered while creating "
@@ -151,7 +157,7 @@ public class MasterServer {
 	 * This method is used to process registration request
 	 * received by the master server.
 	 */
-	public void registrationRequest(String request, 
+	public void chunkserverRegistrationRequest(String request, 
 			DataOutputStream dout){
 		int chunkserverListeningPort = 0;
 		
@@ -236,7 +242,63 @@ public class MasterServer {
 					+ " with data o/p!!! " + e);
 		}
 	}
+	/*
+	 * This method is used to process client registration requests
+	 */
+	public void clientRegistrationRequest(DataInputStream din,
+			 DataOutputStream dout){
+		String[] array;
+		String passwordHash;
+		
+		System.out.println("Client registration request received.");
+		try {
+			dout.writeUTF("Enter a username and password");
+			array = (din.readUTF()).split(",");
+			
+			passwordHash = BCrypt.hashpw(array[1], BCrypt.gensalt());
+			System.out.println("Hashed pass: " + passwordHash);				// remove
+			usernamePassMap.put(array[0], passwordHash);
+			dout.writeUTF("Client with username: " + array[0] + " has"
+					+ " been registered successfully.");
+		} catch (IOException e) {
+			System.err.println("Error encountered while using dout!!!"
+					+ " " + e);
+		}
+	}
 	
+	public void clientLoginRequest(DataInputStream din, DataOutputStream
+			dout, String loginRequest){
+		String[] array;
+		
+		array = loginRequest.split(",");
+		System.out.println("Login request received from client with"
+				+ " username: " + array[1]);
+		// check if username exists
+		if(usernamePassMap.containsKey(array[1])){
+			if (BCrypt.checkpw(array[2], usernamePassMap.get(array[1]))){
+				try {
+					dout.writeUTF("Login successful");
+				} catch (IOException e) {
+					System.err.println("Error encountered while using"
+							+ " dout!!! " + e);
+				}
+			} else{
+				try {
+					dout.writeUTF("Invalid username or password!!!");
+				} catch (IOException e) {
+					System.err.println("Error encountered while using"
+							+ " dout!!! " + e);
+				}
+			}
+		} else{
+			try {
+				dout.writeUTF("Invalid username or password!!!");
+			} catch (IOException e) {
+				System.err.println("Error encountered while using"
+						+ " dout!!! " + e);
+			}
+		}
+	}
 
 // ===========================================================================>>>>>>>>	
 	
@@ -335,6 +397,7 @@ class Heartbeat implements Runnable{
 			} catch (IOException e1) {
 				System.err.println(chunkserverName + " is dead!!!");
 				stop = true;
+				masterServer.displayCross();
 				
 				/**
 				 * Write code for taking action once it is found that

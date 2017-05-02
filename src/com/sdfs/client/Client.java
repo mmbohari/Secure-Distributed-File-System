@@ -1,5 +1,9 @@
 package com.sdfs.client;
 
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.Socket;
 import java.util.Scanner;
 
 /**
@@ -12,28 +16,30 @@ import java.util.Scanner;
 public class Client {
 
 	Scanner sc;
+	boolean stop;
+	static int masterServerListeningPort;
+	static String username;
+	static String password;
+	
+	Socket socket;
 	
 	/*
 	 * This method is used to initialize the client
 	 */
 	public void initialise(){
-		displayLines();
-		// take input
-		input();
-		displayLines();
-	}
-	
-	/*
-	 * This method is used to display possible operations
-	 * that a user can perform
-	 */
-	public void displayOperations(){
-		System.out.println("1. Register");
-		System.out.println("2. Login");
-		System.out.println("3. Create a file");
-		System.out.println("4. Append data to an existing file");
-		System.out.println("5. Read a file");
-		System.out.println("6. Delete a file");
+		int operation;
+		inputMasterServerListeningPort();
+		// establish connection with master server
+		
+		while(stop == false){
+			displayLines();
+			// take input
+			operation = input();
+			// process input
+			processOperation(operation);
+			displayLines();
+		}
+		
 	}
 	
 	/*
@@ -60,11 +66,201 @@ public class Client {
 	}
 	
 	/*
+	 * This method is used to process operation selected by the user
+	 */
+	public void processOperation(int operation){
+		boolean stop = false;
+		sc = new Scanner(System.in);
+		int option = 0;
+		
+		establishConnection();
+		// if operation is Register, then perform registration 
+		// request
+		if(operation == 1){
+			// send a registration request to master server
+			sendRegistrationRequest(socket);
+		} else {
+			// send login request
+			sendLoginRequest(socket);
+			
+			while(stop == false){
+				displayAdvanceOperations();
+				
+				do{
+					try {
+						option = sc.nextInt();
+						
+						if(option == 1){
+							/**
+							 * Code for creating a file
+							 */
+						} else if(option == 2){
+							/**
+							 * Code for appending data to a file
+							 */
+						} else if(option == 3){
+							/**
+							 * Code for reading a file
+							 */
+						} else if(option == 4){
+							/**
+							 * Code for deleting a file
+							 */
+						} else
+							stop = true;
+					} catch (Exception e) {
+						System.err.println("Integer value expected!!!");
+					}
+				} while(option == 0);
+			}
+		}
+	}
+	
+	/*
+	 * This method is used to get listening port that the master
+	 * server is using to accept connections
+	 */
+	public void inputMasterServerListeningPort(){
+		sc = new Scanner(System.in);
+		System.out.println("Enter Master Server listening port....");
+		
+		try {
+			masterServerListeningPort = sc.nextInt();
+		} catch (Exception e) {
+			System.err.println("Integer value expected!!!");
+		}
+	}
+	
+	/*
+	 * This method is used to establish connection with master
+	 * server
+	 */
+	public void establishConnection(){
+		try {
+			socket = new Socket("localhost", masterServerListeningPort);
+		} catch (IOException e) {
+			System.err.println("Error encountered while creating a "
+					+ "socket!!! " + e);
+		}
+	}
+	
+	public void sendRegistrationRequest(Socket socket){
+		try {
+			DataInputStream din = new DataInputStream(socket.
+					getInputStream());
+			DataOutputStream dout = new DataOutputStream(socket.
+					getOutputStream());
+			
+			dout.writeUTF("Client Registration request");
+			din.readUTF();
+			// get username & password
+			String user = inputUsername();
+			String pass = inputPassword();
+			// send username & password to master server
+			dout.writeUTF(user + "," + pass);
+			System.out.println(din.readUTF());
+			
+		} catch (IOException e) {
+			System.err.println("Error encountered while creating"
+					+ " din/dout!!! " + e);
+		}
+		
+	}
+	
+	/*
+	 * This method is used to input username
+	 */
+	public String inputUsername(){
+		String user;
+		sc = new Scanner(System.in);
+		
+		System.out.println("Enter a username");
+		user = sc.nextLine();
+		
+		return user;
+	}
+	
+	/*
+	 * This method is used to input password
+	 */
+	public String inputPassword(){
+		String pass;
+		sc = new Scanner(System.in);
+
+		System.out.println("Enter a password");
+		pass = sc.nextLine();
+		
+		return pass;
+	}
+	
+	/*
+	 * This method is used to send login credentials to the master
+	 * server
+	 */
+	public void sendLoginRequest(Socket socket){
+		String user, pass;
+		DataInputStream din = null;
+		DataOutputStream dout = null;
+		
+		try {
+			din = new DataInputStream(socket.
+					getInputStream());
+			dout = new DataOutputStream(socket.
+					getOutputStream());
+			
+			// get username & password
+			user = inputUsername();
+			pass = inputPassword();
+			// send login credentails to the master server
+			dout.writeUTF("ClientLoginRequest," + user +"," + pass);
+			System.out.println(din.readUTF());
+			
+			
+		} catch (IOException e) {
+			System.err.println("Error encountered while creating"
+					+ " din/dout!!! " + e);
+		} finally{
+			try {
+				din.close();
+				dout.close();
+			} catch (IOException e) {
+				System.err.println("Error encountered while closing"
+						+ " din/dout (fromSendLoginRequest)");
+			}
+		}
+	}
+	
+// ===========================================================================>>>>>>>>
+	
+	/*
+	 * This method is used to display possible operations
+	 * that a user can perform
+	 */
+	public void displayOperations(){
+		System.out.println("1. Register");
+		System.out.println("2. Login");
+	}
+	
+	/*
+	 * This method is used to display advance operations
+	 * that a user can perform
+	 */
+	public void displayAdvanceOperations(){
+		System.out.println("1. Create a file");
+		System.out.println("2. Append data to an existing file");
+		System.out.println("3. Read a file");
+		System.out.println("4. Delete a file");
+		System.out.println("0<>5. Logout");
+	}
+	
+	/*
 	 * This method is used to display lines on console 
 	 * for making the screen elegant 
 	 */
 	public void displayLines(){
 		System.out.println("=================================>>");
 	}
+	
+
 	
 }

@@ -142,7 +142,7 @@ public class Chunkserver {
 			dout = new DataOutputStream(socket.getOutputStream());
 			
 			// send registration request
-			dout.writeUTF("Registeration request from " + listeningPort
+			dout.writeUTF("Chunkserver Registration request from " + listeningPort
 					+ " " + chunkServerName);
 			// receive response from master server
 			System.out.println(din.readUTF());
