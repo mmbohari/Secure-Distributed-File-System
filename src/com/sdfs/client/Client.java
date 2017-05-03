@@ -21,8 +21,6 @@ public class Client {
 	static String username;
 	static String password;
 	
-	Socket socket;
-	
 	/*
 	 * This method is used to initialize the client
 	 */
@@ -74,17 +72,16 @@ public class Client {
 		
 		displayCross();
 		
-		establishConnection();
 		// if operation is Register, then perform registration 
 		// request
 		if(operation == 1){
 			// send a registration request to master server
-			sendRegistrationRequest(socket);
+			sendRegistrationRequest();
 		} else {
 			// send login request
-			sendLoginRequest(socket);
+			sendLoginRequest();
 			
-			// check if login was successfull
+			// check if login was successful
 			if(loggedIn == false)
 				stop = true;
 			while(stop == false){
@@ -116,10 +113,7 @@ public class Client {
 				} while(option == 0);
 			}
 		}
-		if(socketClosed != true){
-			
-		}
-		closeConnection();
+
 	}
 	
 	/*
@@ -137,39 +131,18 @@ public class Client {
 		}
 	}
 	
-	/*
-	 * This method is used to establish connection with master
-	 * server
-	 */
-	public void establishConnection(){
-		try {
-			socket = new Socket("localhost", masterServerListeningPort);
-		} catch (IOException e) {
-			System.err.println("Error encountered while creating a "
-					+ "socket!!! " + e);
-		}
-	}
-	
-	/*
-	 * This method is used to close a connection/ socket
-	 */
-	public void closeConnection(){
-		try {
-			socket.close();
-		} catch (IOException e) {
-			System.err.println("Error encountered while closing"
-					+ " connection!!! (closeConnection) " + e);
-		}
-	}
-	
-	public void sendRegistrationRequest(Socket socket){
+	public void sendRegistrationRequest(){
+		Socket socket = null;
+		
+		socket = establishConnection(socket, masterServerListeningPort);
+		
 		try {
 			DataInputStream din = new DataInputStream(socket.
 					getInputStream());
 			DataOutputStream dout = new DataOutputStream(socket.
 					getOutputStream());
 			
-			dout.writeUTF("Client Registration request");					// remove testing purpose
+			dout.writeUTF("Client Registration request");					
 			din.readUTF();
 			// get username & password
 			String user = inputUsername();
@@ -178,6 +151,7 @@ public class Client {
 			dout.writeUTF(user + "," + pass);
 			System.out.println(din.readUTF());
 			
+			closeConnection(socket);
 		} catch (IOException e) {
 			System.err.println("Error encountered while creating"
 					+ " din/dout!!! " + e);
@@ -215,11 +189,13 @@ public class Client {
 	 * This method is used to send login credentials to the master
 	 * server
 	 */
-	public void sendLoginRequest(Socket socket){
+	public void sendLoginRequest(){
+		Socket socket = null;
 		String user, pass, replyFromMS;
 		DataInputStream din = null;
 		DataOutputStream dout = null;
 		
+		socket = establishConnection(socket, masterServerListeningPort);
 		try {
 			din = new DataInputStream(socket.
 					getInputStream());
@@ -263,12 +239,14 @@ public class Client {
 	 * of the file that is to be created.
 	 */
 	public void sendCreateRequest(){
+		Socket socket = null;
 		DataInputStream din = null;
 		DataOutputStream dout = null;
 		String fileName = "";
 		String replyFromMS;
 		String array[];
 		
+		socket = establishConnection(socket, masterServerListeningPort);
 		sc = new Scanner(System.in);
 
 		try {
@@ -282,6 +260,8 @@ public class Client {
 			array = replyFromMS.split(",");
 			System.out.println("Send create request to "			// Remove for testing
 					+ array[0] + " at port: " + array[1]);
+			
+			closeConnection(socket);
 			
 			// establish connection with the respective chunkserver
 			
@@ -333,6 +313,32 @@ public class Client {
 	 */
 	public void displayCross(){
 		System.out.println("X==X==X==X==X==X==X==X==X==X==X==X=");
+	}
+	
+	/*
+	 * This method is used to establish connection with master
+	 * server
+	 */
+	public Socket establishConnection(Socket socket, int port){
+		try {
+			socket = new Socket("localhost", port);
+		} catch (IOException e) {
+			System.err.println("Error encountered while creating a "
+					+ "socket!!! " + e);
+		}
+		return socket;
+	}
+	
+	/*
+	 * This method is used to close a connection/ socket
+	 */
+	public void closeConnection(Socket socket){
+		try {
+			socket.close();
+		} catch (IOException e) {
+			System.err.println("Error encountered while closing"
+					+ " connection!!! (closeConnection) " + e);
+		}
 	}
 	
 }
