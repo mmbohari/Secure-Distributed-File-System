@@ -172,7 +172,7 @@ public class Chunkserver {
 			serverSocket = new ServerSocket(listeningPort);
 		} catch (IOException e) {
 			System.err.println("Error encountered while opening "
-					+ "serverSocket!!! " + e);
+					+ "serverSocket!!! (listenRequests)" + e);
 		}
 		
 		while(keepListening){
@@ -189,7 +189,7 @@ public class Chunkserver {
 				
 			} catch (IOException e) {
 				System.err.println("Error encountered while accepting "
-						+ "client connection!!! " + e);
+						+ "client connection!!! (listenRequests)" + e);
 			} 
 			
 		}
@@ -250,6 +250,7 @@ class ProcessRequest implements Runnable{
 	DataInputStream din;
 	DataOutputStream dout;
 	Chunkserver chunkServer;
+	boolean stop;
 	
 	/*
 	 * This is constructor method.
@@ -266,7 +267,7 @@ class ProcessRequest implements Runnable{
 			din = new DataInputStream(socket.getInputStream());
 			dout = new DataOutputStream(socket.getOutputStream());
 			
-			while(true){
+			while(stop == false){
 				receivedRequest = din.readUTF();
 				
 				//System.out.println(receivedRequest); 							// remove for testing
@@ -274,11 +275,15 @@ class ProcessRequest implements Runnable{
 				// if the received request is a heartbeat message request
 				if(receivedRequest.contains("Heartbeat message"))
 					processHeartbeatMessage();
+				else if(receivedRequest.contains("Create file request"))
+					processCreateFileRequest(receivedRequest);
+				
 			}
 			
 			} catch (IOException e) {
 			System.err.println("Error encountered while creating "
-					+ "data i/p & o/p streams!!! " + e);
+					+ "data i/p & o/p streams!!! ProcessRequest"
+					+ " (Run)" + e);
 		}
 	}
 	
@@ -293,6 +298,31 @@ class ProcessRequest implements Runnable{
 		} catch (IOException e) {
 			System.err.println("Error encountered while "
 					+ "writing through dout!!! " + e);
+		}
+	}
+	
+	/*
+	 * This method is used to process Create File Request
+	 */
+	public void processCreateFileRequest(String request){
+		String fileName = "", fileContents = "";
+		String[] array;
+		
+		array = request.split(",");
+		fileName = array[1];
+		System.out.println("Create File request received. "
+				+ "Filename: " + fileName);
+		try {
+			dout.writeUTF("Send file contents");
+			fileContents = din.readUTF();
+			System.out.println("Contents received"); 						// remove for testing
+			
+			closeSocket();
+			stop = true;
+		} catch (IOException e) {
+			System.err.println("Error encountered while writing"
+					+ " through dout!!! (processCreateFileRequest)"
+					+ e);
 		}
 	}
 	

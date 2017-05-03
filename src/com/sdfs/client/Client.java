@@ -151,7 +151,7 @@ public class Client {
 			dout.writeUTF(user + "," + pass);
 			System.out.println(din.readUTF());
 			
-			closeConnection(socket);
+			closeConnection(socket, din, dout);
 		} catch (IOException e) {
 			System.err.println("Error encountered while creating"
 					+ " din/dout!!! " + e);
@@ -242,10 +242,11 @@ public class Client {
 		Socket socket = null;
 		DataInputStream din = null;
 		DataOutputStream dout = null;
-		String fileName = "";
+		String fileName = "", fileContents;
 		String replyFromMS;
 		String array[];
 		
+		displayCross();
 		socket = establishConnection(socket, masterServerListeningPort);
 		sc = new Scanner(System.in);
 
@@ -253,27 +254,38 @@ public class Client {
 			din = new DataInputStream(socket.getInputStream());
 			dout = new DataOutputStream(socket.getOutputStream());
 			
-			// send create file request
+			// send create file request to master server
 			dout.writeUTF("Create file request," + username);
-			System.out.println("Request sent"); 							// remove
 			replyFromMS = din.readUTF();
 			array = replyFromMS.split(",");
 			System.out.println("Send create request to "			// Remove for testing
 					+ array[0] + " at port: " + array[1]);
-			
-			closeConnection(socket);
+			closeConnection(socket, din, dout);
 			
 			// establish connection with the respective chunkserver
-			
-			
-			
+			socket = establishConnection(socket, 
+					Integer.parseInt(array[1]));
+			din = new DataInputStream(socket.getInputStream());
+			dout = new DataOutputStream(socket.getOutputStream());
+
+			// Send create file request to chunkserver along with
+			// filename
 			System.out.println("Enter filename:");
 			fileName = sc.nextLine();
+			dout.writeUTF("Create file request," + fileName);
+			displayCross();
+			// send file contents to chunkserver
+			System.out.println("Enter file contents");
+			fileContents = sc.nextLine();
+			dout.writeUTF(fileContents);
+			displayCross();
+			System.out.println(din.readUTF()); 								// Remove for testing
+
 		} catch (IOException e) {
 			System.err.println("Error encountered while creating"
 					+ " din/dout!!! (sendCreateRequest) " + e);
 		}
-			
+			closeConnection(socket, din, dout);
 	}
 	
 // ===========================================================================>>>>>>>>
@@ -332,8 +344,11 @@ public class Client {
 	/*
 	 * This method is used to close a connection/ socket
 	 */
-	public void closeConnection(Socket socket){
+	public void closeConnection(Socket socket, DataInputStream din
+			, DataOutputStream dout){
 		try {
+			din.close();
+			dout.close();
 			socket.close();
 		} catch (IOException e) {
 			System.err.println("Error encountered while closing"
