@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.HashMap;
+import java.util.Random;
 import java.util.Scanner;
 
 /**
@@ -136,6 +137,8 @@ public class MasterServer {
 				clientRegistrationRequest(din, dout);		
 			else if(receivedRequest.contains("ClientLoginRequest"))
 				clientLoginRequest(din, dout, receivedRequest);
+			else if(receivedRequest.contains("Create file request"))
+				createFileRequest(dout);
 
 			} catch (IOException e) {
 			System.err.println("Error encountered while creating "
@@ -220,8 +223,6 @@ public class MasterServer {
 			System.err.println("Error encountered while writing"
 					+ " with data o/p!!! " + e);
 		}
-		
-		
 	}
 	
 	/*
@@ -266,6 +267,11 @@ public class MasterServer {
 		}
 	}
 	
+	/*
+	 * This method is used to process client login request.
+	 * If the username and passwords match, then a successful
+	 * login message is sent, else login fail message is sent
+	 */
 	public void clientLoginRequest(DataInputStream din, DataOutputStream
 			dout, String loginRequest){
 		String[] array;
@@ -296,6 +302,34 @@ public class MasterServer {
 			} catch (IOException e) {
 				System.err.println("Error encountered while using"
 						+ " dout!!! " + e);
+			}
+		}
+	}
+	
+	/*
+	 * This method is used process create file request.
+	 * The master server forwards the chunkserver name &
+	 * its listening port to the client.
+	 */
+	public void createFileRequest(DataOutputStream dout){
+		int chunkserverNo = -1;
+		int csListeningPort = -1;
+		String csName;
+		
+		chunkserverNo = randomNoGenerator();
+		csName = "Chunkserver" + chunkserverNo;
+		csListeningPort = chunkserverMap.get(csName);
+		try {
+			dout.writeUTF(csName +"," + csListeningPort);
+		} catch (IOException e) {
+			System.err.println("Error encountered while using dout!!!"
+					+ " (createFileRequest)");
+		} finally {
+			try {
+				dout.close();
+			} catch (IOException e) {
+				System.err.println("Error encountered while closing"
+						+ " dout!!! (createFileRequest)");
 			}
 		}
 	}
@@ -330,7 +364,6 @@ public class MasterServer {
 			System.out.println(backupChunkserverArray[i] + " "
 					+ chunkserverMap.get(backupChunkserverArray[i]));
 		}
-		
 	}
 	
 	/*
@@ -356,6 +389,16 @@ public class MasterServer {
 		System.out.println("X==X==X==X==X==X==X==X==X==X==X==X=");
 	}
 	
+	/*
+	 * This method is used to generate a random number between 0 & 2
+	 */
+	public int randomNoGenerator(){
+		int randomNo = -1;
+		Random random = new Random();
+		randomNo = random.nextInt(3);
+		
+		return randomNo;
+	}
 }
 
 /**
@@ -427,7 +470,6 @@ class Heartbeat implements Runnable{
 				System.err.println("Error encountered (From class Heartbear)"
 						+ " " + e);
 			}
-			
 	}
 	
 	/*

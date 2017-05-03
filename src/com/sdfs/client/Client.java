@@ -86,14 +86,13 @@ public class Client {
 			while(stop == false){
 				displayAdvanceOperations();
 				
+				establishConnection();
 				do{
 					try {
 						option = sc.nextInt();
 						
 						if(option == 1){
-							/**
-							 * Code for creating a file
-							 */
+							sendCreateRequest();
 						} else if(option == 2){
 							/**
 							 * Code for appending data to a file
@@ -228,6 +227,40 @@ public class Client {
 						+ " din/dout (fromSendLoginRequest)");
 			}
 		}
+	}
+	
+	/*
+	 * This method is used to send a request to create a file in SDFS.
+	 * Upon reception of this request, the master server provides
+	 * chunkserver port where the client has to forward name and contents
+	 * of the file that is to be created.
+	 */
+	public void sendCreateRequest(){
+		DataInputStream din = null;
+		DataOutputStream dout = null;
+		String fileName = "";
+		String replyFromMS;
+		String array[];
+		
+		sc = new Scanner(System.in);
+		System.out.println("Enter filename:");
+		fileName = sc.nextLine();
+		try {
+			din = new DataInputStream(socket.getInputStream());
+			dout = new DataOutputStream(socket.getOutputStream());
+			
+			// send create file request
+			dout.writeUTF("Create file request");
+			System.out.println("Request sent"); 							// remove
+			replyFromMS = din.readUTF();
+			array = replyFromMS.split(",");
+			System.out.println("Send create request to "			// Remove for testing
+					+ array[0] + " at port: " + array[1]);
+		} catch (IOException e) {
+			System.err.println("Error encountered while creating"
+					+ " din/dout!!! (sendCreateRequest) " + e);
+		}
+			
 	}
 	
 // ===========================================================================>>>>>>>>
