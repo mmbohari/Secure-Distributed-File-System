@@ -16,7 +16,7 @@ import java.util.Scanner;
 public class Client {
 
 	Scanner sc;
-	boolean stop;
+	boolean stop, loggedIn, socketClosed;
 	static int masterServerListeningPort;
 	static String username;
 	static String password;
@@ -29,7 +29,6 @@ public class Client {
 	public void initialise(){
 		int operation;
 		inputMasterServerListeningPort();
-		// establish connection with master server
 		
 		while(stop == false){
 			displayLines();
@@ -73,6 +72,8 @@ public class Client {
 		sc = new Scanner(System.in);
 		int option = 0;
 		
+		displayCross();
+		
 		establishConnection();
 		// if operation is Register, then perform registration 
 		// request
@@ -83,10 +84,12 @@ public class Client {
 			// send login request
 			sendLoginRequest(socket);
 			
+			// check if login was successfull
+			if(loggedIn == false)
+				stop = true;
 			while(stop == false){
 				displayAdvanceOperations();
 				
-				establishConnection();
 				do{
 					try {
 						option = sc.nextInt();
@@ -113,6 +116,10 @@ public class Client {
 				} while(option == 0);
 			}
 		}
+		if(socketClosed != true){
+			
+		}
+		closeConnection();
 	}
 	
 	/*
@@ -143,6 +150,18 @@ public class Client {
 		}
 	}
 	
+	/*
+	 * This method is used to close a connection/ socket
+	 */
+	public void closeConnection(){
+		try {
+			socket.close();
+		} catch (IOException e) {
+			System.err.println("Error encountered while closing"
+					+ " connection!!! (closeConnection) " + e);
+		}
+	}
+	
 	public void sendRegistrationRequest(Socket socket){
 		try {
 			DataInputStream din = new DataInputStream(socket.
@@ -150,7 +169,7 @@ public class Client {
 			DataOutputStream dout = new DataOutputStream(socket.
 					getOutputStream());
 			
-			dout.writeUTF("Client Registration request");
+			dout.writeUTF("Client Registration request");					// remove testing purpose
 			din.readUTF();
 			// get username & password
 			String user = inputUsername();
@@ -197,7 +216,7 @@ public class Client {
 	 * server
 	 */
 	public void sendLoginRequest(Socket socket){
-		String user, pass;
+		String user, pass, replyFromMS;
 		DataInputStream din = null;
 		DataOutputStream dout = null;
 		
@@ -212,7 +231,13 @@ public class Client {
 			pass = inputPassword();
 			// send login credentails to the master server
 			dout.writeUTF("ClientLoginRequest," + user +"," + pass);
-			System.out.println(din.readUTF());
+			replyFromMS = din.readUTF();
+			System.out.println(replyFromMS);
+			if(replyFromMS.contains("Login successful")){
+				loggedIn = true;
+				username = user;
+			}
+				
 			
 			
 		} catch (IOException e) {
@@ -227,6 +252,8 @@ public class Client {
 						+ " din/dout (fromSendLoginRequest)");
 			}
 		}
+		
+		displayLines();
 	}
 	
 	/*
@@ -243,19 +270,25 @@ public class Client {
 		String array[];
 		
 		sc = new Scanner(System.in);
-		System.out.println("Enter filename:");
-		fileName = sc.nextLine();
+
 		try {
 			din = new DataInputStream(socket.getInputStream());
 			dout = new DataOutputStream(socket.getOutputStream());
 			
 			// send create file request
-			dout.writeUTF("Create file request");
+			dout.writeUTF("Create file request," + username);
 			System.out.println("Request sent"); 							// remove
 			replyFromMS = din.readUTF();
 			array = replyFromMS.split(",");
 			System.out.println("Send create request to "			// Remove for testing
 					+ array[0] + " at port: " + array[1]);
+			
+			// establish connection with the respective chunkserver
+			
+			
+			
+			System.out.println("Enter filename:");
+			fileName = sc.nextLine();
 		} catch (IOException e) {
 			System.err.println("Error encountered while creating"
 					+ " din/dout!!! (sendCreateRequest) " + e);
@@ -294,6 +327,12 @@ public class Client {
 		System.out.println("=================================>>");
 	}
 	
-
+	/*
+	 * This method is used to display pluses on console 
+	 * for making the screen elegant 
+	 */
+	public void displayCross(){
+		System.out.println("X==X==X==X==X==X==X==X==X==X==X==X=");
+	}
 	
 }

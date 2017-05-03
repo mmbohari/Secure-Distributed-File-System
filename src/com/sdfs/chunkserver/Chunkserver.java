@@ -269,7 +269,7 @@ class ProcessRequest implements Runnable{
 			while(true){
 				receivedRequest = din.readUTF();
 				
-				System.out.println(receivedRequest); 							// remove for testing
+				//System.out.println(receivedRequest); 							// remove for testing
 				
 				// if the received request is a heartbeat message request
 				if(receivedRequest.contains("Heartbeat message"))
@@ -288,7 +288,7 @@ class ProcessRequest implements Runnable{
 	public void processHeartbeatMessage(){
 		try {
 			dout.writeUTF("alive " + chunkServer.getChunkserverName());
-			System.out.println("Response to hearbeat message sent.."); 		// remove for testing
+			//System.out.println("Response to hearbeat message sent.."); 		// remove for testing
 			
 		} catch (IOException e) {
 			System.err.println("Error encountered while "
