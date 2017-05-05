@@ -5,9 +5,13 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Random;
 import java.util.Scanner;
+
+import javax.crypto.SecretKey;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * 
@@ -29,8 +33,10 @@ public class MasterServer {
 
 	ServerSocket serverSocket;
 	Socket clientSocket; // can make this local
-	HashMap<String, Integer> chunkserverMap;
-	HashMap<String, String> usernamePassMap;
+	HashMap<String, Integer> chunkserverMap;		// Chunkserver Name & their listening port
+	HashMap<String, String> usernamePassMap;		// Username & hashKey of their password
+	HashMap<String, String> fileKeyMap;				// Filename & secretKey (String format)
+	HashMap<String, String> filePrimaryMap;			// Finename & chunkserver where it is present
 
 	/*
 	 * Constructor of MasterServer
@@ -41,6 +47,8 @@ public class MasterServer {
 		backupChunkserverArray = new String[3];
 		chunkserverMap = new HashMap<>();
 		usernamePassMap = new HashMap<>();
+		fileKeyMap = new HashMap<>();
+		filePrimaryMap = new HashMap<>();
 	}
 
 	/*
@@ -141,6 +149,8 @@ public class MasterServer {
 				clientLoginRequest(din, dout, receivedRequest);
 			else if (receivedRequest.contains("Create file request"))
 				createFileRequest(dout, receivedRequest);
+			else if (receivedRequest.contains("Secret Key"))
+				storeSecretKey(receivedRequest);
 
 		} catch (IOException e) {
 			System.err.println("Error encountered while creating " + "data i/p & o/p streams!!! (processRequest) " + e);
@@ -326,6 +336,26 @@ public class MasterServer {
 				System.err.println("Error encountered while closing" + " dout!!! (createFileRequest)");
 			}
 		}
+	}
+	
+	/*
+	 * This method is used to store file name & its secret key
+	 */
+	public void storeSecretKey(String request){
+		String array[];
+		String filename, encodedKey, chunkserverName;
+		
+		System.out.println("Received secret key"); 							// remove Testing
+		array = request.split(",");
+		filename = array[1];
+		encodedKey = array[2];
+		chunkserverName = array[3];
+		
+		// store file name & its secret key
+		fileKeyMap.put(filename, encodedKey);
+		// store file name & chunkserver where it is present
+		filePrimaryMap.put(filename, chunkserverName);
+		System.out.println("File name & key stored"); 						// remove Testing
 	}
 
 	// ===========================================================================>>>>>>>>

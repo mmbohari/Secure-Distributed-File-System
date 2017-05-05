@@ -1,13 +1,26 @@
 package com.sdfs.chunkserver;
 
+import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.Scanner;
+
+import javax.crypto.BadPaddingException;
+import javax.crypto.Cipher;
+import javax.crypto.IllegalBlockSizeException;
+import javax.crypto.KeyGenerator;
+import javax.crypto.NoSuchPaddingException;
+import javax.crypto.SecretKey;
 
 /**
  * This class represents Chunkservers.
@@ -45,6 +58,8 @@ public class Chunkserver {
 		
 		// input chunkserver number
 		chunkServerName += inputChunkserverNumber();
+		// make directory for this chunkserver
+		new File("./" + chunkServerName).mkdir();
 		// input listening port
 		do {
 			listeningPort = inputListeningPort();
@@ -317,12 +332,116 @@ class ProcessRequest implements Runnable{
 			fileContents = din.readUTF();
 			System.out.println("Contents received"); 						// remove for testing
 			
+			// Encrypt and store file on the chunkserver
+			storeFile(fileName, fileContents);
+			
+			/**
+			 * Send file stored successfully message to client & then
+			 * close the socket
+			 */
 			closeSocket();
 			stop = true;
 		} catch (IOException e) {
 			System.err.println("Error encountered while writing"
 					+ " through dout!!! (processCreateFileRequest)"
 					+ e);
+		}
+	}
+	
+	/*
+	 * This method is used create a file. This file is encrypted
+	 * and stored on the chunkserver
+	 */
+	public void storeFile(String fileName, String fileContents){
+		KeyGenerator keyGen;
+		SecretKey secKey;
+		Cipher cipher;
+		byte[] plainText, encryptedText;
+		String encryptedTextString;
+		FileWriter fw = null;
+		BufferedWriter bw = null;
+		
+		try {
+			keyGen = KeyGenerator.getInstance("DES");
+			secKey = keyGen.generateKey();
+			cipher = Cipher.getInstance("DES");
+			
+			// encrypt the file contents
+			plainText = fileContents.getBytes("UTF-8");
+			cipher.init(Cipher.ENCRYPT_MODE, secKey);
+			encryptedText = cipher.doFinal(plainText);
+			encryptedTextString = new String(encryptedText);
+			
+			// write the encrypted file contents
+			fw = new FileWriter("./" + chunkServer.getChunkserverName()
+				+ "/" + fileName + ".txt");
+			bw = new BufferedWriter(fw);
+			bw.write(encryptedTextString);
+			System.out.println("File: " + fileName + " created"
+					+ " successfully");
+			
+			// send the file name & secret key to master server
+			connectMasterServer(fileName, secKey);
+			
+		} catch (NoSuchAlgorithmException e) {
+			System.err.println("Error - while creating keyGen!!! "
+					+ "(storeFile) " + e);
+		} catch (NoSuchPaddingException e) {
+			System.err.println("Error - while creating cipher!!! "
+					+ "(storeFile) " + e);
+		} catch (UnsupportedEncodingException e) {
+			System.err.println("Error - while getting bytes!!! "
+					+ "(storeFile) " + e);
+		} catch (InvalidKeyException e) {
+			System.err.println("Error - while initailizing cipher"
+					+ "!!! (storeFile) " + e);
+		} catch (IllegalBlockSizeException e) {
+			System.err.println("Error - while creating encrypted"
+					+ "text!!! (storeFile) " + e);
+		} catch (BadPaddingException e) {
+			System.err.println("Error - while creating encrypted"
+					+ "text!!! (storeFile) " + e);
+		} catch (IOException e) {
+			System.err.println("Error - while creating file writer"
+					+ " !!! (storeFile) " + e);
+		} finally {
+			try {
+				bw.close();
+				fw.close();
+			} catch (IOException e) {
+				System.err.println("Error - while closing bw/fw"
+						+ " !!! (storeFile) " + e);
+			}
+		}
+		
+	}
+	
+	public void connectMasterServer(String fileName, SecretKey
+			secKey){
+		Socket socket;
+		DataInputStream din = null;
+		DataOutputStream dout = null;
+		String encodedKey;
+		
+		try {
+			// establish connection with the master server
+			socket = new Socket("localhost", 
+					chunkServer.getListeningPortMasterServer());
+			din = new DataInputStream(socket.getInputStream());
+			dout = new DataOutputStream(socket.getOutputStream());
+			encodedKey = Base64.getEncoder().encodeToString
+					(secKey.getEncoded());
+			
+			// send secret key & filename
+			dout.writeUTF("Secret Key," + fileName + "," 
+					+ encodedKey + "," + 
+					chunkServer.getChunkserverName());
+		} catch (UnknownHostException e) {
+			System.err.println("Host unknown!!! "
+					+ "(connectedMasterServer) " + e);
+		} catch (IOException e) {
+			System.err.println("Error - while creating a socket"
+					+ " !!! (connectedMasterServer) " + e);
 		}
 	}
 	
