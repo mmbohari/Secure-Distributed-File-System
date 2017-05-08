@@ -363,7 +363,6 @@ class ProcessRequest implements Runnable{
 		KeyGenerator keyGen;
 		SecretKey secKey;
 		Cipher cipher;
-		byte[] plainText, encryptedText;
 		String encryptedTextString;
 		FileWriter fw = null;
 		BufferedWriter bw = null;

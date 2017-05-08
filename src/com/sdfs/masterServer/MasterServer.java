@@ -3,6 +3,7 @@ package com.sdfs.masterServer;
 import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -159,6 +160,8 @@ public class MasterServer {
 				readFileRequest(receivedRequest,dout);
 			else if(receivedRequest.contains("Decryption key"))
 				giveDecryptionKey(receivedRequest, dout);
+			else if(receivedRequest.contains("Delete request"))
+				deleteRequest(receivedRequest, dout);
 
 		} catch (IOException e) {
 			System.err.println("Error encountered while creating " + "data i/p & o/p streams!!! (processRequest) " + e);
@@ -351,6 +354,8 @@ public class MasterServer {
 		// Display the request received // Use for Audits
 		String[] array = request.split(",");
 		System.out.println("Create File Request received from: " + array[1]);
+		// writing log
+		new Thread(new Audit("Create File Request from Client: " + array[1])).start();
 
 		chunkserverNo = randomNoGenerator();
 		// System.out.println("Random Number: " + chunkserverNo); // remove
@@ -384,6 +389,9 @@ public class MasterServer {
 		
 		// store file name & its secret key
 		fileKeyMap.put(filename, encodedKey);
+		// writing log
+		new Thread(new Audit(filename + ".txt Created")).start();
+		
 //		System.out.println("Filename :" + filename + ": Stored encoded key :" +fileKeyMap.get(filename) + ":"); 			// remove
 //		System.out.println("is the filename present in filePrimaryMap: " + fileKeyMap.containsKey(filename));				// remove
 		// store file name & chunkserver where it is present
@@ -397,14 +405,16 @@ public class MasterServer {
 	public void readFileRequest(String request, DataOutputStream
 			dout){
 		String[] array;
-		String filename, chunkserverName;
+		String filename, chunkserverName, username;
 		int chunkListeningPort = 0;
 		
 		array = request.split(",");
 		filename = array[1];
+		username = array[2];
 		chunkserverName = filePrimaryMap.get(filename);
 		chunkListeningPort = chunkserverMap.get(chunkserverName);
 
+		new Thread(new Audit("Read Reqeuest for " + filename + ".txt from Client: " + username)).start();
 		System.out.println( filename + "is present at" + 			// remove
 				chunkserverName);
 		// send port number of chunkserver that has the file
@@ -434,6 +444,71 @@ public class MasterServer {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+	}
+	
+	/*
+	 * This method is used to process delete file request
+	 */
+	public void deleteRequest(String request, DataOutputStream dout){
+		String filename = "", username = "", chunkserver = "";
+		String[] array;
+		File file;
+		
+		array = request.split(",");
+		filename = array[1];
+		username = array[2];
+		System.out.println("Delete request for file :" + filename + ".txt received");
+		// write log
+		new Thread(new Audit("Delete Request for File: " + filename + ".txt "
+				+ "from Client: " + username)).start();
+		
+		// check if the file is present
+		if(fileKeyMap.containsKey(filename)){
+			System.out.println("File is present. Progressing to delete operation");
+			chunkserver = filePrimaryMap.get(filename);
+			
+			file = new File("./" + chunkserver + "/" + filename + ".txt");
+			if(file.delete()){
+    			System.out.println(file.getName() + " is deleted!");
+    			// write in log
+    			new Thread(new Audit(filename + ".txt Deleted")).start();
+    			fileKeyMap.remove(filename);
+    			filePrimaryMap.remove(filename);
+    			try {
+					dout.writeUTF(filename + ".txt deleted successfully");
+				} catch (IOException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+    		}else{
+    			System.out.println("Delete operation is failed.");
+    		}
+			/**
+			 * Write program for deleting the respective file
+			 */
+		} else{
+			System.out.println("File is not present");
+			// write log
+			new Thread(new Audit(filename + " is not present. Unsuccessful delete operation from Client: " + username)).start();
+			try {
+				dout.writeUTF(filename + ".txt is not present");
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			try {
+				dout.writeUTF(filename + " cannot be deleted");
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
+	/*
+	 * This method is used to delete a respective file
+	 */
+	public void deleteFile(String filename){
+		
 	}
 
 	// ===========================================================================>>>>>>>>

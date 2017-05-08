@@ -94,15 +94,9 @@ public class Client {
 						if(option == 1){
 							sendCreateRequest();
 						} else if(option == 2){
-							/**
-							 * Code for appending data to a file
-							 */
-						} else if(option == 3){
 							sendReadRequest();
-						} else if(option == 4){
-							/**
-							 * Code for deleting a file
-							 */
+						} else if(option == 3){
+							deleteRequest();
 						} else
 							stop = true;
 					} catch (Exception e) {
@@ -273,7 +267,7 @@ public class Client {
 			dout.writeUTF("Create file request," + fileName);
 			displayCross();
 			// send file contents to chunkserver
-			System.out.println("Enter file contents");
+			System.out.println("Enter file contents:");
 			fileContents = sc.nextLine();
 			dout.writeUTF(fileContents);
 			displayCross();
@@ -310,7 +304,7 @@ public class Client {
 			dout = new DataOutputStream(socket.getOutputStream());
 			
 			// send read file request to the master server
-			dout.writeUTF("Read file request," + fileName);
+			dout.writeUTF("Read file request," + fileName + "," + username);
 			replyFromMS = din.readUTF();
 			array = replyFromMS.split(",");
 //			System.out.println("Send read request to "			// Remove for testing
@@ -339,6 +333,40 @@ public class Client {
 
 	}
 	
+	/*
+	 * This method is used to send delete file request
+	 * to SDFS
+	 */
+	public void deleteRequest(){
+		String fileName = "";
+		Socket socket = null;
+		DataInputStream din = null;
+		DataOutputStream dout = null;
+		
+		sc = new Scanner(System.in);
+		
+		// input file name that is to be deleted
+		System.out.println("Enter filename that is to be deleted.");
+		fileName = sc.nextLine();
+		displayCross();
+		
+		// send delete request along with file name to the master
+		// server
+		socket = establishConnection(socket, masterServerListeningPort);
+		try {
+			din = new DataInputStream(socket.getInputStream());
+			dout = new DataOutputStream(socket.getOutputStream());
+			
+			dout.writeUTF("Delete request," + fileName + "," + username);
+			System.out.println("Delete request for file :" + fileName + ": sent to the master server"); 		// remove testing
+			String replyMS = din.readUTF();
+			System.out.println(replyMS);
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+	
 // ===========================================================================>>>>>>>>
 	
 	/*
@@ -356,10 +384,9 @@ public class Client {
 	 */
 	public void displayAdvanceOperations(){
 		System.out.println("1. Create a file");
-		System.out.println("2. Append data to an existing file");
-		System.out.println("3. Read a file");
-		System.out.println("4. Delete a file");
-		System.out.println("0<>5. Logout");
+		System.out.println("2. Read a file");
+		System.out.println("3. Delete a file");
+		System.out.println("0<>3. Logout");
 	}
 	
 	/*
