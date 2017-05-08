@@ -1,17 +1,17 @@
 package com.sdfs.masterServer;
 
+import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.util.Base64;
+import java.sql.Timestamp;
 import java.util.HashMap;
 import java.util.Random;
 import java.util.Scanner;
 
-import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 
 /**
  * 
@@ -57,6 +57,10 @@ public class MasterServer {
 	public void initialise() {
 		displayLines();
 		System.out.println("Initialising master");
+		Thread thread = new Thread(new 
+				Audit("=========================================>>"
+						+ "\n" + "SDFS: The master server started."));
+		thread.start();
 
 		// take listening port
 		do {
@@ -176,9 +180,11 @@ public class MasterServer {
 	 */
 	public void chunkserverRegistrationRequest(String request, DataOutputStream dout) {
 		int chunkserverListeningPort = 0;
-
+		
 		String[] array = request.split(" ");
-		System.out.println("Registration request received from" + " " + array[array.length - 1]);
+		// write log
+		new Thread(new Audit(array[array.length - 1] + " Registration requested received")).start();
+		System.out.println("Registration request received from" + " " + array[array.length - 1] + ".");
 
 		try {
 			chunkserverListeningPort = Integer.parseInt(array[array.length - 2]);
@@ -212,33 +218,46 @@ public class MasterServer {
 	/*
 	 * This method is used to assign role of chunkserver
 	 */
-	public void assignChunkserver(DataOutputStream dout, String chunkserverName, int chunkserverListeningPort) {
+	public void assignChunkserver(DataOutputStream dout, String 
+			chunkserverName, int chunkserverListeningPort) {
 		activeChunkserver++;
 		activeChunkserverArray[activeChunkserver - 1] = chunkserverName;
 		chunkserverMap.put(chunkserverName, chunkserverListeningPort);
 
 		try {
-			dout.writeUTF("Your request has been received. You are" + " registered as Chunkserver.");
+			dout.writeUTF("Your request has been received. You are" 
+		+ " registered as Chunkserver.");
+			// write log
+			new Thread(new Audit(chunkserverName + " assigned "
+					+ "chunkserver role.")).start();
 
 			// create a thread that will send heartbeat messages to
 			// this chunkserver
-			Thread thread = new Thread(new Heartbeat(this, chunkserverName));
+			Thread thread = new Thread(new Heartbeat(this, 
+					chunkserverName));
 			thread.start();
 		} catch (IOException e) {
-			System.err.println("Error encountered while writing" + " with data o/p!!! (assignChunkserver)" + e);
+			System.err.println("Error encountered while writing" + " "
+					+ "with data o/p!!! (assignChunkserver)" + e);
 		}
 	}
 
 	/*
 	 * This method is used to assign role of backup Chunkserver
 	 */
-	public void assignBackupChunkserver(DataOutputStream dout, String chunkserverName, int chunkserverListeningPort) {
+	public void assignBackupChunkserver(DataOutputStream dout, 
+			String chunkserverName, int chunkserverListeningPort) {
 		backupChunkserver++;
 		backupChunkserverArray[backupChunkserver - 1] = chunkserverName;
 		chunkserverMap.put(chunkserverName, chunkserverListeningPort);
 
 		try {
-			dout.writeUTF("Your request has been received. You are" + " registered as Backup Chunkserver.");
+			dout.writeUTF("Your request has been received. You are" 
+					+ " registered as Backup Chunkserver.");
+			// write log
+			new Thread(new Audit(chunkserverName + " assigned backup "
+					+ "chunkserver role.")).start();
+
 		} catch (IOException e) {
 			System.err.println("Error encountered while writing" + " with data o/p!!! " + e);
 		}
@@ -251,8 +270,10 @@ public class MasterServer {
 		String[] array;
 		String passwordHash, requestOutcome = "Failed";
 
-		System.out.println("Client registration request received."); // Use for
-																		// Audits
+		System.out.println("Client registration request received."); 
+		// writing log
+		new Thread(new Audit("Client registration request received.")).start();
+		
 		try {
 			dout.writeUTF("Enter a username and password");
 			array = (din.readUTF()).split(",");
@@ -260,12 +281,14 @@ public class MasterServer {
 			passwordHash = BCrypt.hashpw(array[1], BCrypt.gensalt());
 			// System.out.println("Hashed pass: " + passwordHash); // remove
 			usernamePassMap.put(array[0], passwordHash);
-			dout.writeUTF("Client with username: " + array[0] + " has" + " been registered successfully.");
+			dout.writeUTF("Client with username: " + array[0] + " has" +
+					" been registered successfully.");
+			// writing log
+			new Thread(new Audit("Client with username :" + array[0]
+					+ ": has" + " been registered successfully.")).start();
 			requestOutcome = "Success";
 
-			System.out.println("Client Registration Request " + " from: " + array[0] + " Outcome: " + requestOutcome); // Use
-																														// for
-																														// Audits
+			System.out.println("Client Registration Request " + " from :" + array[0] + ": Outcome: " + requestOutcome); 
 		} catch (IOException e) {
 			System.err.println("Error encountered while using dout!!! " + "clientRegistrationRequest " + e);
 		}
@@ -281,14 +304,17 @@ public class MasterServer {
 		String requestOutcome = "Failed";
 
 		array = loginRequest.split(",");
-		System.out.println("Login request received from client with" + " username: " + array[1]); // Use
-																									// for
-																									// Audits
+		System.out.println("Login request received from client with" + " username: " + array[1]); 
+		// writing log
+		new Thread(new Audit("Login request received from client with" + " username :" + array[1]
+				+ ":")).start();
+		
 		// check if username exists
 		if (usernamePassMap.containsKey(array[1])) {
 			if (BCrypt.checkpw(array[2], usernamePassMap.get(array[1]))) {
 				try {
 					dout.writeUTF("Login successful");
+					new Thread(new Audit("Client :" + array[1] + ": login successfully")).start();
 					requestOutcome = "Success";
 				} catch (IOException e) {
 					System.err.println("Error encountered while using" + " dout!!! " + e);
@@ -296,6 +322,7 @@ public class MasterServer {
 			} else {
 				try {
 					dout.writeUTF("Invalid username or password!!!");
+					new Thread(new Audit("Client: " + array[1] + " loggen in unsuccessful")).start();
 				} catch (IOException e) {
 					System.err.println("Error encountered while using" + " dout!!! " + e);
 				}
@@ -515,6 +542,7 @@ class Heartbeat implements Runnable {
 				stop = true;
 				masterServer.displayCross();
 
+				new Thread(new Audit(chunkserverName + " is dead")).start();
 				/**
 				 * Write code for taking action once it is found that a
 				 * chunkserver is dead
@@ -555,4 +583,42 @@ class Heartbeat implements Runnable {
 		}
 	}
 
+}
+
+/**
+ * This class is used to write an audit log for SDFS.
+ * 
+ * @author mmbohari
+ *
+ */
+class Audit implements Runnable{
+
+	String log, filepath;
+	FileWriter fw = null;
+	BufferedWriter bw = null;
+	Timestamp timestamp;
+	
+	public Audit(String log){
+		this.log = log;
+		filepath = "./AuditLog.txt";
+	}
+	
+	public void run() {
+		try {
+			fw = new FileWriter(filepath, true);
+			bw = new BufferedWriter(fw);
+			bw.newLine();
+			bw.write(log + "							" + new Timestamp(System.currentTimeMillis()));
+		} catch (IOException e) {
+			e.printStackTrace();
+		} finally {
+			try {
+				bw.close();
+				fw.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
+	
 }
