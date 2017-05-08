@@ -36,7 +36,7 @@ public class MasterServer {
 	HashMap<String, Integer> chunkserverMap;		// Chunkserver Name & their listening port
 	HashMap<String, String> usernamePassMap;		// Username & hashKey of their password
 	HashMap<String, String> fileKeyMap;				// Filename & secretKey (String format)
-	HashMap<String, String> filePrimaryMap;			// Finename & chunkserver where it is present
+	HashMap<String, String> filePrimaryMap;			// Filename & chunkserver where it is present
 
 	/*
 	 * Constructor of MasterServer
@@ -151,6 +151,10 @@ public class MasterServer {
 				createFileRequest(dout, receivedRequest);
 			else if (receivedRequest.contains("Secret Key"))
 				storeSecretKey(receivedRequest);
+			else if (receivedRequest.contains("Read file request"))
+				readFileRequest(receivedRequest,dout);
+			else if(receivedRequest.contains("Decryption key"))
+				giveDecryptionKey(receivedRequest, dout);
 
 		} catch (IOException e) {
 			System.err.println("Error encountered while creating " + "data i/p & o/p streams!!! (processRequest) " + e);
@@ -345,7 +349,7 @@ public class MasterServer {
 		String array[];
 		String filename, encodedKey, chunkserverName;
 		
-		System.out.println("Received secret key"); 							// remove Testing
+//		System.out.println("Received secret key"); 							// remove Testing
 		array = request.split(",");
 		filename = array[1];
 		encodedKey = array[2];
@@ -353,9 +357,56 @@ public class MasterServer {
 		
 		// store file name & its secret key
 		fileKeyMap.put(filename, encodedKey);
+//		System.out.println("Filename :" + filename + ": Stored encoded key :" +fileKeyMap.get(filename) + ":"); 			// remove
+//		System.out.println("is the filename present in filePrimaryMap: " + fileKeyMap.containsKey(filename));				// remove
 		// store file name & chunkserver where it is present
 		filePrimaryMap.put(filename, chunkserverName);
-		System.out.println("File name & key stored"); 						// remove Testing
+//		System.out.println("File name & key stored"); 						// remove Testing
+	}
+	
+	/*
+	 * This method is used to process read file request
+	 */
+	public void readFileRequest(String request, DataOutputStream
+			dout){
+		String[] array;
+		String filename, chunkserverName;
+		int chunkListeningPort = 0;
+		
+		array = request.split(",");
+		filename = array[1];
+		chunkserverName = filePrimaryMap.get(filename);
+		chunkListeningPort = chunkserverMap.get(chunkserverName);
+
+		System.out.println( filename + "is present at" + 			// remove
+				chunkserverName);
+		// send port number of chunkserver that has the file
+		try {
+			dout.writeUTF(chunkserverName + "," + chunkListeningPort);
+		} catch (IOException e) {
+			System.err.println("Error while writing through dout");
+		}
+		
+	}
+	
+	public void giveDecryptionKey(String request, DataOutputStream dout){
+		String[] array;
+		String filename = "";
+		String encodedKey = "";
+		
+//		System.out.println("Decrypton key request received");
+		array = request.split(",");
+		filename = array[1];
+//		System.out.println("File name :" + filename + ": ");  							// remove testing
+		encodedKey = fileKeyMap.get(filename);
+//		System.out.println("Fetched encoded key :" + encodedKey + ":"); 						// remove
+		try {
+			dout.writeUTF(encodedKey);
+			
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	// ===========================================================================>>>>>>>>

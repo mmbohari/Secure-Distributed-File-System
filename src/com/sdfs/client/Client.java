@@ -98,9 +98,7 @@ public class Client {
 							 * Code for appending data to a file
 							 */
 						} else if(option == 3){
-							/**
-							 * Code for reading a file
-							 */
+							sendReadRequest();
 						} else if(option == 4){
 							/**
 							 * Code for deleting a file
@@ -286,6 +284,59 @@ public class Client {
 					+ " din/dout!!! (sendCreateRequest) " + e);
 		}
 			closeConnection(socket, din, dout);
+	}
+	
+	/*
+	 * This method is used to send a read request to SDFS
+	 */
+	public void sendReadRequest(){
+		Socket socket = null;
+		DataInputStream din = null;
+		DataOutputStream dout = null;
+		String fileName = "", replyFromMS, fileContents;
+		String array[];
+		int chunkListeningPort = 0;
+		
+		displayCross();
+		sc = new Scanner(System.in);
+		System.out.println("Enter file name:");
+		fileName = sc.nextLine();
+		displayCross();
+		socket = establishConnection(socket, masterServerListeningPort);
+//		System.out.println("Connection established with master"); 		// remove testing
+	
+		try {
+			din = new DataInputStream(socket.getInputStream());
+			dout = new DataOutputStream(socket.getOutputStream());
+			
+			// send read file request to the master server
+			dout.writeUTF("Read file request," + fileName);
+			replyFromMS = din.readUTF();
+			array = replyFromMS.split(",");
+//			System.out.println("Send read request to "			// Remove for testing
+//					+ array[0] + " at port: " + array[1]);
+			chunkListeningPort = Integer.parseInt(array[1]);
+			closeConnection(socket, din, dout);
+			
+			// establish conection with chunkserver
+			socket = establishConnection(socket, chunkListeningPort);
+			din = new DataInputStream(socket.getInputStream());
+			dout = new DataOutputStream(socket.getOutputStream());
+			// forward read request to chunk server
+			dout.writeUTF("Read request," + fileName);
+//			System.out.println("Request sent to the respective chunkserver");  		// remove testing
+			fileContents = din.readUTF();
+			System.out.println("Contents of " + fileName
+					+ ".txt are as follows:");
+			System.out.println(fileContents);
+			closeConnection(socket, din, dout);
+			displayLines();
+			
+		} catch (IOException e) {
+			System.err.println("Error encountered while creating"
+					+ " din/dout!!! (sendCreateRequest) " + e);
+		}
+
 	}
 	
 // ===========================================================================>>>>>>>>

@@ -1,15 +1,18 @@
 package com.sdfs.chunkserver;
 
+import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
@@ -21,6 +24,8 @@ import javax.crypto.IllegalBlockSizeException;
 import javax.crypto.KeyGenerator;
 import javax.crypto.NoSuchPaddingException;
 import javax.crypto.SecretKey;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
 
 /**
  * This class represents Chunkservers.
@@ -292,6 +297,8 @@ class ProcessRequest implements Runnable{
 					processHeartbeatMessage();
 				else if(receivedRequest.contains("Create file request"))
 					processCreateFileRequest(receivedRequest);
+				else if(receivedRequest.contains("Read request"))
+					processReadRequest(receivedRequest);
 				
 			}
 			
@@ -362,15 +369,17 @@ class ProcessRequest implements Runnable{
 		BufferedWriter bw = null;
 		
 		try {
-			keyGen = KeyGenerator.getInstance("DES");
+			keyGen = KeyGenerator.getInstance("AES");
+			keyGen.init(128);
 			secKey = keyGen.generateKey();
-			cipher = Cipher.getInstance("DES");
+			cipher = Cipher.getInstance("AES");
 			
 			// encrypt the file contents
-			plainText = fileContents.getBytes("UTF-8");
-			cipher.init(Cipher.ENCRYPT_MODE, secKey);
-			encryptedText = cipher.doFinal(plainText);
-			encryptedTextString = new String(encryptedText);
+			encryptedTextString = encrypt(fileContents, secKey, cipher);
+			//plainText = fileContents.getBytes("UTF-8");
+//			cipher.init(Cipher.ENCRYPT_MODE, secKey);
+	//		encryptedText = cipher.doFinal(plainText);
+		//	encryptedTextString = new String(encryptedText);
 			
 			// write the encrypted file contents
 			fw = new FileWriter("./" + chunkServer.getChunkserverName()
@@ -392,15 +401,6 @@ class ProcessRequest implements Runnable{
 		} catch (UnsupportedEncodingException e) {
 			System.err.println("Error - while getting bytes!!! "
 					+ "(storeFile) " + e);
-		} catch (InvalidKeyException e) {
-			System.err.println("Error - while initailizing cipher"
-					+ "!!! (storeFile) " + e);
-		} catch (IllegalBlockSizeException e) {
-			System.err.println("Error - while creating encrypted"
-					+ "text!!! (storeFile) " + e);
-		} catch (BadPaddingException e) {
-			System.err.println("Error - while creating encrypted"
-					+ "text!!! (storeFile) " + e);
 		} catch (IOException e) {
 			System.err.println("Error - while creating file writer"
 					+ " !!! (storeFile) " + e);
@@ -416,10 +416,44 @@ class ProcessRequest implements Runnable{
 		
 	}
 	
+	/*
+	 * This method is used to encrypt a given plain text string
+	 */
+	public String encrypt(String plainText, SecretKey secKey,
+			Cipher cipher){
+		byte[] plainTextByte, encryptedByte;
+		String encryptedText = "";
+		Base64.Encoder encoder;
+		
+		plainTextByte = plainText.getBytes();
+		try {
+			cipher.init(Cipher.ENCRYPT_MODE, secKey);
+			encryptedByte = cipher.doFinal(plainTextByte);
+			encoder = Base64.getEncoder();
+			encryptedText = encoder.encodeToString(encryptedByte);
+		} catch (InvalidKeyException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IllegalBlockSizeException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (BadPaddingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return encryptedText;
+		
+	}
+	
+	/*
+	 * This method is used to send secret key (that was used for
+	 * encryption) and file name (respective file that was encrypted)
+	 * to the master server 
+	 */
 	public void connectMasterServer(String fileName, SecretKey
 			secKey){
 		Socket socket;
-		DataInputStream din = null;
 		DataOutputStream dout = null;
 		String encodedKey;
 		
@@ -443,6 +477,119 @@ class ProcessRequest implements Runnable{
 			System.err.println("Error - while creating a socket"
 					+ " !!! (connectedMasterServer) " + e);
 		}
+	}
+	
+	/*
+	 * This method is used to process read request
+	 */
+	public void processReadRequest(String request){
+		String[] array;
+		String fileName = "", encodedKey = "", fileContents = "", decryptText;
+		Socket socket;
+		DataInputStream din = null;
+		DataOutputStream dout = null;
+		byte[] decodedKey;
+		SecretKey secKey;
+		Cipher cipher;
+		FileReader fr = null;
+		BufferedReader br = null;
+		
+		array = request.split(",");
+		fileName = array[1];
+		System.out.println("Request to read file: " + fileName
+				+ ".txt received");
+		
+		// ask the master server for decryption key
+		try {
+			socket = new Socket("localhost", 
+					chunkServer.getListeningPortMasterServer());
+//			System.out.println("Connection established with the master server"); 		// remove
+			din = new DataInputStream(socket.getInputStream());
+			dout = new DataOutputStream(socket.getOutputStream());
+			dout.writeUTF("Decryption key," + fileName);
+//			System.out.println("Decryption key request sent to master"); 				// remove
+			encodedKey = din.readUTF();
+//			System.out.println("decryption key received"); 								// remove
+			din.close();
+			dout.close();
+			socket.close();
+			
+			decodedKey = Base64.getDecoder().decode(encodedKey);
+			secKey = new SecretKeySpec(decodedKey, 0,
+					decodedKey.length, "AES");
+			
+			// open and read file contents
+			fr = new FileReader("./" + chunkServer.getChunkserverName() + "/" + fileName + ".txt");
+			br = new BufferedReader(fr);
+			String line;
+			while((line = br.readLine()) != null){
+				fileContents += line;
+			}
+//			System.out.println("Read file contents :" + fileContents + ":"); remove
+			
+			cipher = Cipher.getInstance("AES");
+			// get decrypted text
+			decryptText = decrypt(fileContents, secKey, cipher);
+//			cipher.init(Cipher.DECRYPT_MODE, secKey);
+			
+//			decryptedText = cipher.doFinal(encryptedText);
+	//		decryptText = new String(decryptedText);
+//			System.out.println("Contents read from the file are:"); 			// remove testing
+//			System.out.println(decryptText);
+			this.dout.writeUTF(decryptText);
+//			System.out.println("contents sent");			remove
+			stop = true;
+			closeSocket();
+			
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		} catch (NoSuchAlgorithmException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (NoSuchPaddingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} finally {
+			try {
+				br.close();
+				fr.close();
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+
+	}
+	
+	/*
+	 * This method is used to decrypt an encrypted string
+	 */
+	public String decrypt(String encryptedText, SecretKey secKey,
+			Cipher cipher){
+		Base64.Decoder decode;
+		byte[] encryptedTextByte, decryptedByte;
+		String decryptedText = "";
+		
+		decode = Base64.getDecoder();
+		encryptedTextByte = decode.decode(encryptedText);
+		try {
+			cipher.init(Cipher.DECRYPT_MODE, secKey);
+			decryptedByte = cipher.doFinal(encryptedTextByte);
+			decryptedText = new String(decryptedByte);
+		} catch (InvalidKeyException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IllegalBlockSizeException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (BadPaddingException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		
+		return decryptedText;
 	}
 	
 	/*
